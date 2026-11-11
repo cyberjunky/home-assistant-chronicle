@@ -1,0 +1,21 @@
+{
+    "domain": "chronicle",
+    "name": "Chronicle",
+    "codeowners": [
+        "@cyberjunky"
+    ],
+    "config_flow": true,
+    "dependencies": [],
+    "documentation": "https://github.com/cyberjunky/home-assistant-chronicle",
+    "integration_type": "service",
+    "iot_class": "local_push",
+    "issue_tracker": "https://github.com/cyberjunky/home-assistant-chronicle/issues",
+    "loggers": [
+        "asyncpg"
+    ],
+    "requirements": [
+        "asyncpg==0.32.0"
+    ],
+    "single_config_entry": false,
+    "version": "0.1.0"
+}

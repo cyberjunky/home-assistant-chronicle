@@ -1,0 +1,23 @@
+{
+    "entity": {
+        "sensor": {
+            "database_size": { "default": "mdi:database" },
+            "history_size": { "default": "mdi:database-clock" },
+            "compression_ratio": { "default": "mdi:arrow-collapse-vertical" },
+            "rows": { "default": "mdi:table-large" },
+            "entities": { "default": "mdi:format-list-bulleted" },
+            "attribute_sets": { "default": "mdi:code-json" },
+            "oldest": { "default": "mdi:history" },
+            "queue": { "default": "mdi:tray-full" },
+            "rows_written": { "default": "mdi:database-plus" },
+            "dropped": { "default": "mdi:delete-alert" },
+            "last_write": { "default": "mdi:clock-check" },
+            "write_duration": { "default": "mdi:timer-outline" }
+        }
+    },
+    "services": {
+        "flush": { "service": "mdi:content-save-move" },
+        "purge_entities": { "service": "mdi:delete-clock" },
+        "import_ltss": { "service": "mdi:database-import" }
+    }
+}

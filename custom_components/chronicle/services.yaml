@@ -1,0 +1,19 @@
+flush:
+
+purge_entities:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          multiple: true
+    keep_days:
+      required: false
+      selector:
+        number:
+          min: 1
+          max: 36500
+          mode: box
+          unit_of_measurement: days
+
+import_ltss:

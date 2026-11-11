@@ -1,0 +1,170 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "Connect to TimescaleDB",
+                "description": "Chronicle records the history of your entities in a TimescaleDB database, compressed and kept as long as you like.",
+                "data": {
+                    "host": "Host",
+                    "port": "Port",
+                    "username": "User name",
+                    "password": "Password",
+                    "database": "Database",
+                    "ssl": "Use SSL"
+                },
+                "data_description": {
+                    "host": "The TimescaleDB server. For the TimescaleDB app from cyberjunky's repository this is 1b41fb55-timescaledb.",
+                    "database": "The database to record into; it must exist. Chronicle creates its tables in a schema called chronicle.",
+                    "ssl": "Encrypt the connection (the certificate is not checked)."
+                }
+            },
+            "reconfigure": {
+                "title": "Change the database connection",
+                "description": "Chronicle continues in the database you enter here. History in the old database stays there.",
+                "data": {
+                    "host": "Host",
+                    "port": "Port",
+                    "username": "User name",
+                    "password": "Password",
+                    "database": "Database",
+                    "ssl": "Use SSL"
+                },
+                "data_description": {
+                    "host": "The TimescaleDB server. For the TimescaleDB app from cyberjunky's repository this is 1b41fb55-timescaledb.",
+                    "database": "The database to record into; it must exist. Chronicle creates its tables in a schema called chronicle.",
+                    "ssl": "Encrypt the connection (the certificate is not checked)."
+                }
+            }
+        },
+        "error": {
+            "cannot_connect": "Could not connect. Check the host, port, user name, password and that the database exists.",
+            "timescaledb_missing": "The TimescaleDB extension is not installed on this PostgreSQL server.",
+            "permission": "This user may not create the TimescaleDB extension or the chronicle schema. Use the database owner or postgres.",
+            "unknown": "An unexpected error occurred, see the log."
+        },
+        "abort": {
+            "already_configured": "Chronicle already records into this database.",
+            "reconfigure_successful": "The connection was changed."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "Chronicle options",
+                "description": "Saving restarts Chronicle; nothing recorded is lost.",
+                "sections": {
+                    "entities": {
+                        "name": "Which entities",
+                        "description": "Without include rules every entity is recorded, except the excluded ones. Chronicle's own sensors are never recorded.",
+                        "data": {
+                            "include_domains": "Include domains",
+                            "include_entities": "Include entities",
+                            "include_entity_globs": "Include entity patterns",
+                            "exclude_domains": "Exclude domains",
+                            "exclude_entities": "Exclude entities",
+                            "exclude_entity_globs": "Exclude entity patterns"
+                        },
+                        "data_description": {
+                            "include_entity_globs": "Patterns such as sensor.*_power",
+                            "exclude_entity_globs": "Patterns such as sensor.*_signal_strength"
+                        }
+                    },
+                    "storage": {
+                        "name": "Storage",
+                        "description": "How long and how compact the history is kept.",
+                        "data": {
+                            "store_attributes": "Record attributes",
+                            "aggregates": "Hourly and daily averages",
+                            "retention_days": "Keep detailed history",
+                            "compress_after_days": "Compress after",
+                            "chunk_days": "Chunk size",
+                            "commit_interval": "Write every",
+                            "max_queue": "Queue while the database is away"
+                        },
+                        "data_description": {
+                            "store_attributes": "Each distinct set of attributes is stored only once.",
+                            "aggregates": "Keeps the mean, minimum, maximum and last value per hour and per day of every numeric entity. They stay when the detailed history is removed.",
+                            "retention_days": "0 keeps everything. At least 14 days when set. The hourly and daily averages are not removed.",
+                            "compress_after_days": "Older history is compressed, typically to a tenth of its size.",
+                            "chunk_days": "Days of history per chunk (the unit that is compressed and removed). Applies to new chunks.",
+                            "commit_interval": "Seconds between writes; sooner when many states are waiting.",
+                            "max_queue": "States kept in memory while the database can't be reached; beyond this the oldest are dropped."
+                        }
+                    }
+                }
+            }
+        },
+        "error": {
+            "retention_too_short": "Keep the detailed history for at least 14 days, or 0 to keep everything."
+        }
+    },
+    "entity": {
+        "binary_sensor": {
+            "connected": {
+                "name": "Connected"
+            }
+        },
+        "sensor": {
+            "database_size": {
+                "name": "Database size"
+            },
+            "history_size": {
+                "name": "History size"
+            },
+            "compression_ratio": {
+                "name": "Compression ratio"
+            },
+            "rows": {
+                "name": "Rows"
+            },
+            "entities": {
+                "name": "Entities"
+            },
+            "attribute_sets": {
+                "name": "Attribute sets"
+            },
+            "oldest": {
+                "name": "Oldest history"
+            },
+            "queue": {
+                "name": "Queue"
+            },
+            "rows_written": {
+                "name": "Rows written"
+            },
+            "dropped": {
+                "name": "Dropped states"
+            },
+            "last_write": {
+                "name": "Last write"
+            },
+            "write_duration": {
+                "name": "Write duration"
+            }
+        }
+    },
+    "services": {
+        "flush": {
+            "name": "Write now",
+            "description": "Writes the queued states to the database right away."
+        },
+        "purge_entities": {
+            "name": "Purge entities",
+            "description": "Deletes the recorded history of entities. Without 'Keep days' the entities are removed completely, averages included.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entities",
+                    "description": "The entities whose history is deleted."
+                },
+                "keep_days": {
+                    "name": "Keep days",
+                    "description": "Only delete history older than this many days."
+                }
+            }
+        },
+        "import_ltss": {
+            "name": "Import LTSS history",
+            "description": "Copies the history of the LTSS integration (table public.ltss in this database) into Chronicle, in the background. It continues where it stopped when run again; the LTSS table is not changed."
+        }
+    }
+}

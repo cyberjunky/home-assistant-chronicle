@@ -1,0 +1,6 @@
+{
+  "name": "Chronicle",
+  "homeassistant": "2026.3.0",
+  "hacs": "2.0.5",
+  "render_readme": true
+}
