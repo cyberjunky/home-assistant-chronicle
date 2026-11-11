@@ -16,4 +16,31 @@ purge_entities:
           mode: box
           unit_of_measurement: days
 
+exclude_entities:
+  fields:
+    entity_id:
+      required: true
+      selector:
+        entity:
+          multiple: true
+    purge:
+      required: false
+      default: false
+      selector:
+        boolean:
+
+exclude_domains:
+  fields:
+    domain:
+      required: true
+      example: "automation"
+      selector:
+        text:
+          multiple: true
+    purge:
+      required: false
+      default: false
+      selector:
+        boolean:
+
 import_ltss:

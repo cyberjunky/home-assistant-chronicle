@@ -167,6 +167,34 @@
         "import_ltss": {
             "name": "Import LTSS history",
             "description": "Copies the history of the LTSS integration (table public.ltss in this database) into Chronicle, in the background. It continues where it stopped when run again; the LTSS table is not changed."
+        },
+        "exclude_entities": {
+            "name": "Exclude entities",
+            "description": "Stops recording entities: adds them to the excluded entities in the options. With Purge, their recorded history is deleted too.",
+            "fields": {
+                "entity_id": {
+                    "name": "Entities",
+                    "description": "The entities to stop recording."
+                },
+                "purge": {
+                    "name": "Purge",
+                    "description": "Also delete their recorded history, averages included."
+                }
+            }
+        },
+        "exclude_domains": {
+            "name": "Exclude domains",
+            "description": "Stops recording whole domains, such as automation: adds them to the excluded domains in the options. With Purge, the recorded history of their entities is deleted too.",
+            "fields": {
+                "domain": {
+                    "name": "Domains",
+                    "description": "The domains to stop recording."
+                },
+                "purge": {
+                    "name": "Purge",
+                    "description": "Also delete the recorded history of their entities, averages included."
+                }
+            }
         }
     }
 }

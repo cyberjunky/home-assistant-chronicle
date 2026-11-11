@@ -150,6 +150,59 @@ async def test_purge(hass: HomeAssistant, database, sql) -> None:
     )
 
 
+async def test_exclude_entities(hass: HomeAssistant, database, sql) -> None:
+    entry = await _setup(hass, database, {"exclude_entities": ["sensor.other"]})
+    hass.states.async_set("sensor.noisy", "1")
+    hass.states.async_set("sensor.kept", "2")
+    await _flush(hass)
+
+    response = await hass.services.async_call(
+        DOMAIN,
+        "exclude_entities",
+        {"entity_id": ["sensor.noisy"], "purge": True},
+        blocking=True,
+        return_response=True,
+    )
+    await hass.async_block_till_done()
+    assert response == {"excluded": ["sensor.noisy"], "deleted_rows": 1}
+    assert entry.options["exclude_entities"] == ["sensor.other", "sensor.noisy"]
+    assert entry.state is ConfigEntryState.LOADED
+
+    # No longer recorded after the restart; the others still are
+    hass.states.async_set("sensor.noisy", "3")
+    hass.states.async_set("sensor.kept", "4")
+    await _flush(hass)
+    assert {r["entity_id"] for r in await sql.fetch("SELECT entity_id FROM chronicle.history")} == {
+        "sensor.kept"
+    }
+
+
+async def test_exclude_domains(hass: HomeAssistant, database, sql) -> None:
+    entry = await _setup(hass, database)
+    hass.states.async_set("automation.a", "on")
+    hass.states.async_set("automation.b", "off")
+    hass.states.async_set("sensor.kept", "2")
+    await _flush(hass)
+
+    response = await hass.services.async_call(
+        DOMAIN,
+        "exclude_domains",
+        {"domain": "automation", "purge": True},
+        blocking=True,
+        return_response=True,
+    )
+    await hass.async_block_till_done()
+    assert response == {"excluded": ["automation"], "deleted_rows": 2}
+    assert entry.options["exclude_domains"] == ["automation"]
+
+    hass.states.async_set("automation.a", "off")
+    hass.states.async_set("sensor.kept", "3")
+    await _flush(hass)
+    assert {r["entity_id"] for r in await sql.fetch("SELECT entity_id FROM chronicle.history")} == {
+        "sensor.kept"
+    }
+
+
 async def test_sensors(hass: HomeAssistant, database) -> None:
     await _setup(hass, database)
     state = hass.states.get("binary_sensor.chronicle_connected")

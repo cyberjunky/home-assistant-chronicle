@@ -22,7 +22,7 @@ It is a new take on the idea of [LTSS](https://github.com/freol35241/ltss), whic
 - **Averages that stay:** hourly and daily mean, minimum, maximum and last value of every numeric entity, kept up to date by TimescaleDB. You can remove the detailed history after a while and keep the averages for ever.
 - **Set up in the UI:** connection, which entities, how long and how compact; no YAML.
 - **Diagnostics:** sensors for the database size, the compression ratio, the queue, the rows written and the connection.
-- **Actions:** write now, purge the history of entities, import LTSS history.
+- **Actions:** write now, purge the history of entities, exclude entities or domains, import LTSS history.
 - **No compiling:** uses [asyncpg](https://github.com/MagicStack/asyncpg), which has ready-made packages for every Home Assistant platform, Raspberry Pi included.
 
 ## Requirements
@@ -74,7 +74,7 @@ SELECT e.entity_id, count(*) FROM chronicle.states s JOIN chronicle.entities e O
 WHERE s.time > now() - interval '1 day' GROUP BY 1 ORDER BY 2 DESC LIMIT 20;
 ```
 
-What was recorded before an exclusion stays; remove it with the action **Chronicle: Purge entities**.
+What was recorded before an exclusion stays; remove it with the action **Chronicle: Purge entities**, or exclude and purge in one go with **Chronicle: Exclude entities** (the Chronicle app's entity page has buttons for both).
 
 **Storage.**
 
@@ -129,6 +129,8 @@ WHERE s.time > now() - interval '1 day' GROUP BY 1 ORDER BY 2 DESC LIMIT 20;
 |---|---|
 | `chronicle.flush` | Write the queue now |
 | `chronicle.purge_entities` | Delete the history of entities. With `keep_days` only older history; without, the entities are removed completely, averages included. Returns the number of deleted rows |
+| `chronicle.exclude_entities` | Stop recording entities: adds them to **Excluded entities** in the options and restarts the recording. With `purge: true` their history is deleted too. Returns the excluded entities and the number of deleted rows |
+| `chronicle.exclude_domains` | The same for whole domains (`domain: automation`): adds them to **Excluded domains**; with `purge: true` the history of their entities is deleted too |
 | `chronicle.import_ltss` | Copy the history of the LTSS integration (table `public.ltss` in the same database) into Chronicle |
 
 ## Moving from LTSS
