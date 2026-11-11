@@ -15,6 +15,7 @@ async def test_user_flow(hass: HomeAssistant, database) -> None:
     result = await hass.config_entries.flow.async_configure(result["flow_id"], database)
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"] == database
+    assert result["title"] == "Chronicle"
 
 
 async def test_wrong_password(hass: HomeAssistant, database) -> None:

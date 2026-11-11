@@ -17,5 +17,5 @@
         "asyncpg==0.32.0"
     ],
     "single_config_entry": false,
-    "version": "0.1.0"
+    "version": "0.1.1"
 }

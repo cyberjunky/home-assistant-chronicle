@@ -102,6 +102,12 @@ async def async_setup(hass: HomeAssistant, _config: ConfigType) -> bool:
 
 async def async_setup_entry(hass: HomeAssistant, entry: ChronicleConfigEntry) -> bool:
     """Connect, create or upgrade the tables, then start recording."""
+    # 0.1.0 named the only entry "Chronicle (<database>)"
+    if (
+        entry.title == f"Chronicle ({entry.data[CONF_DATABASE]})"
+        and len(hass.config_entries.async_entries(DOMAIN)) == 1
+    ):
+        hass.config_entries.async_update_entry(entry, title="Chronicle")
     db = ChronicleDatabase(
         entry.data[CONF_HOST],
         entry.data[CONF_PORT],

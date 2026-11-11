@@ -143,7 +143,13 @@ class ChronicleConfigFlow(ConfigFlow, domain=DOMAIN):
             errors = await _try_connection(user_input)
             if not errors:
                 return self.async_create_entry(
-                    title=f"Chronicle ({user_input[CONF_DATABASE]})", data=user_input
+                    # The database is only added to tell several entries apart
+                    title=(
+                        f"Chronicle ({user_input[CONF_DATABASE]})"
+                        if self._async_current_entries()
+                        else "Chronicle"
+                    ),
+                    data=user_input,
                 )
         return self.async_show_form(
             step_id="user",
