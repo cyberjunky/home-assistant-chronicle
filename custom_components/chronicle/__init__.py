@@ -25,7 +25,9 @@ from homeassistant.helpers.entityfilter import EntityFilter, convert_filter
 from homeassistant.helpers.typing import ConfigType
 
 from .const import (
+    ATTR_DOMAIN,
     ATTR_KEEP_DAYS,
+    ATTR_PURGE,
     CONF_AGGREGATES,
     CONF_CHUNK_DAYS,
     CONF_COMMIT_INTERVAL,
@@ -51,6 +53,8 @@ from .const import (
     DEFAULT_SKIP_ATTRIBUTE_ONLY,
     DEFAULT_STORE_ATTRIBUTES,
     DOMAIN,
+    SERVICE_EXCLUDE_DOMAINS,
+    SERVICE_EXCLUDE_ENTITIES,
     SERVICE_FLUSH,
     SERVICE_IMPORT_LTSS,
     SERVICE_PURGE_ENTITIES,
@@ -195,6 +199,42 @@ def _register_services(hass: HomeAssistant) -> None:
             await data.coordinator.async_request_refresh()
         return {"deleted_rows": deleted}
 
+    async def exclude(option_key: str, items: list[str], purge: bool) -> int:
+        """Puts entities or domains on an exclude list in the options and restarts the
+        recording with it; with purge, their recorded history is deleted too."""
+        deleted = 0
+        for entry in _loaded_entries(hass):
+            data = entry.runtime_data
+            excluded = list(entry.options.get(option_key, []))
+            excluded += [i for i in items if i not in excluded]
+            if purge:
+                await data.writer.async_flush()
+                try:
+                    entity_ids = (
+                        items
+                        if option_key == CONF_EXCLUDE_ENTITIES
+                        else await data.db.async_entity_ids(items)
+                    )
+                    if entity_ids:
+                        deleted += await data.db.async_purge(entity_ids, None)
+                except ChronicleDatabaseError as err:
+                    raise HomeAssistantError(f"Purge failed: {err}") from err
+            hass.config_entries.async_update_entry(
+                entry, options={**entry.options, option_key: excluded}
+            )
+            hass.config_entries.async_schedule_reload(entry.entry_id)
+        return deleted
+
+    async def exclude_entities(call: ServiceCall) -> ServiceResponse:
+        entity_ids: list[str] = call.data[ATTR_ENTITY_ID]
+        deleted = await exclude(CONF_EXCLUDE_ENTITIES, entity_ids, call.data[ATTR_PURGE])
+        return {"excluded": entity_ids, "deleted_rows": deleted}
+
+    async def exclude_domains(call: ServiceCall) -> ServiceResponse:
+        domains: list[str] = call.data[ATTR_DOMAIN]
+        deleted = await exclude(CONF_EXCLUDE_DOMAINS, domains, call.data[ATTR_PURGE])
+        return {"excluded": domains, "deleted_rows": deleted}
+
     async def run_import(entry: ChronicleConfigEntry) -> None:
         data = entry.runtime_data
 
@@ -244,3 +284,27 @@ def _register_services(hass: HomeAssistant) -> None:
         supports_response=SupportsResponse.OPTIONAL,
     )
     hass.services.async_register(DOMAIN, SERVICE_IMPORT_LTSS, import_ltss)
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_EXCLUDE_ENTITIES,
+        exclude_entities,
+        schema=vol.Schema(
+            {
+                vol.Required(ATTR_ENTITY_ID): cv.entity_ids,
+                vol.Optional(ATTR_PURGE, default=False): cv.boolean,
+            }
+        ),
+        supports_response=SupportsResponse.OPTIONAL,
+    )
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_EXCLUDE_DOMAINS,
+        exclude_domains,
+        schema=vol.Schema(
+            {
+                vol.Required(ATTR_DOMAIN): vol.All(cv.ensure_list, [cv.string]),
+                vol.Optional(ATTR_PURGE, default=False): cv.boolean,
+            }
+        ),
+        supports_response=SupportsResponse.OPTIONAL,
+    )

@@ -444,6 +444,19 @@ class ChronicleDatabase:
 
     # ------------------------------------------------------------------ maintenance
 
+    async def async_entity_ids(self, domains: list[str]) -> list[str]:
+        """The recorded entities of these domains."""
+        pool = self._require_pool()
+        try:
+            async with pool.acquire() as conn:
+                rows = await conn.fetch(
+                    f"SELECT entity_id FROM {SCHEMA}.entities WHERE domain = ANY($1::text[])",
+                    domains,
+                )
+        except (OSError, asyncpg.PostgresError) as err:
+            raise ChronicleDatabaseError(str(err)) from err
+        return [r["entity_id"] for r in rows]
+
     async def async_purge(self, entity_ids: list[str], keep_days: int | None) -> int:
         """Delete the history of entities; with keep_days only rows older than that.
 
