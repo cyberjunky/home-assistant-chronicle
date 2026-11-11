@@ -99,7 +99,7 @@ What was recorded before an exclusion stays; remove it with the action **Chronic
 | `chronicle.history` | A view with everything joined: `time`, `entity_id`, `state`, `value`, `attributes` |
 | `chronicle.states_hourly`, `chronicle.states_daily` | The averages |
 
-A state that is a plain number (`21.5`, `-3`, `1e3`) is stored as a number in `value` and `state` is empty; the `history` view shows it as text again. `on` and `off` are stored as text with `value` 1 and 0, so the averages give the share of time something was on. Everything else (`unavailable`, `heat`, `nan`, `1_000`) is stored as text.
+A state that is a plain number (`21.5`, `-3`, `1e3`) is stored as a number in `value` and `state` is empty; the `history` view shows it as text again. `on` and `off` are stored as text with `value` 1 and 0. Note that the averages count recorded changes, not time: for the share of time something was on, use the changes themselves (the Chronicle app does this, and its Query page has an example). Everything else (`unavailable`, `heat`, `nan`, `1_000`) is stored as text.
 
 Examples:
 
