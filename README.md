@@ -56,15 +56,32 @@ Chronicle creates its tables in a schema called `chronicle`, so it can share a d
 
 ## Options
 
-**Configure** on the integration:
+**Settings** → **Devices & services** → **Chronicle** → **Configure**. Saving restarts Chronicle; nothing queued is lost.
 
-**Which entities.** Without include rules every entity is recorded except the excluded ones. Domains, single entities and patterns (`sensor.*_power`) can be included and excluded. Chronicle's own sensors are never recorded.
+**Which entities.** Without include rules every entity is recorded except the excluded ones. Domains, single entities and patterns (`sensor.*_power`) can be included and excluded: pick them from the list, or type a name and press Enter. Chronicle's own sensors are never recorded.
+
+Worth excluding:
+
+| | Why |
+|---|---|
+| Domains `automation` and `script` | Their state stays `on`; every run only changes `last_triggered`, which the logbook already keeps |
+| Signal strength, uptime and "last seen" sensors | Change constantly and are rarely worth keeping |
+
+To find the busiest entities, run in pgAdmin:
+
+```sql
+SELECT e.entity_id, count(*) FROM chronicle.states s JOIN chronicle.entities e ON e.id = s.entity
+WHERE s.time > now() - interval '1 day' GROUP BY 1 ORDER BY 2 DESC LIMIT 20;
+```
+
+What was recorded before an exclusion stays; remove it with the action **Chronicle: Purge entities**.
 
 **Storage.**
 
 | Option | Default | |
 |---|---|---|
 | Record attributes | on | Each distinct set is stored once |
+| Skip attribute-only changes | off | Only record a change when the state itself changes, not when only an attribute does |
 | Hourly and daily averages | on | See [Averages](#averages) |
 | Keep detailed history | 0 (for ever) | Days; at least 14 when set. The averages stay |
 | Compress after | 7 days | |

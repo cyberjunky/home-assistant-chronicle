@@ -74,6 +74,7 @@
                         "description": "How long and how compact the history is kept.",
                         "data": {
                             "store_attributes": "Record attributes",
+                            "skip_attribute_only": "Skip attribute-only changes",
                             "aggregates": "Hourly and daily averages",
                             "retention_days": "Keep detailed history",
                             "compress_after_days": "Compress after",
@@ -83,6 +84,7 @@
                         },
                         "data_description": {
                             "store_attributes": "Each distinct set of attributes is stored only once.",
+                            "skip_attribute_only": "Only record a change when the state itself changes, not when only an attribute does (an automation's last_triggered, a tracker's last seen).",
                             "aggregates": "Keeps the mean, minimum, maximum and last value per hour and per day of every numeric entity. They stay when the detailed history is removed.",
                             "retention_days": "0 keeps everything. At least 14 days when set. The hourly and daily averages are not removed.",
                             "compress_after_days": "Older history is compressed, typically to a tenth of its size.",

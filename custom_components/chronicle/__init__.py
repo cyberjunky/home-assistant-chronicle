@@ -39,6 +39,7 @@ from .const import (
     CONF_INCLUDE_GLOBS,
     CONF_MAX_QUEUE,
     CONF_RETENTION_DAYS,
+    CONF_SKIP_ATTRIBUTE_ONLY,
     CONF_SSL,
     CONF_STORE_ATTRIBUTES,
     DEFAULT_AGGREGATES,
@@ -47,6 +48,7 @@ from .const import (
     DEFAULT_COMPRESS_AFTER_DAYS,
     DEFAULT_MAX_QUEUE,
     DEFAULT_RETENTION_DAYS,
+    DEFAULT_SKIP_ATTRIBUTE_ONLY,
     DEFAULT_STORE_ATTRIBUTES,
     DOMAIN,
     SERVICE_FLUSH,
@@ -130,6 +132,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ChronicleConfigEntry) ->
         db,
         build_filter(dict(entry.options)),
         store_attributes=option(entry, CONF_STORE_ATTRIBUTES, DEFAULT_STORE_ATTRIBUTES),
+        skip_attribute_only=option(entry, CONF_SKIP_ATTRIBUTE_ONLY, DEFAULT_SKIP_ATTRIBUTE_ONLY),
         commit_interval=option(entry, CONF_COMMIT_INTERVAL, DEFAULT_COMMIT_INTERVAL),
         max_queue=option(entry, CONF_MAX_QUEUE, DEFAULT_MAX_QUEUE),
     )

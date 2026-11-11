@@ -43,6 +43,7 @@ from .const import (
     CONF_INCLUDE_GLOBS,
     CONF_MAX_QUEUE,
     CONF_RETENTION_DAYS,
+    CONF_SKIP_ATTRIBUTE_ONLY,
     CONF_SSL,
     CONF_STORE_ATTRIBUTES,
     DEFAULT_AGGREGATES,
@@ -54,6 +55,7 @@ from .const import (
     DEFAULT_MAX_QUEUE,
     DEFAULT_PORT,
     DEFAULT_RETENTION_DAYS,
+    DEFAULT_SKIP_ATTRIBUTE_ONLY,
     DEFAULT_STORE_ATTRIBUTES,
     DEFAULT_USERNAME,
     DOMAIN,
@@ -259,6 +261,10 @@ class ChronicleOptionsFlow(OptionsFlowWithReload):
                             vol.Required(
                                 CONF_STORE_ATTRIBUTES,
                                 **default(CONF_STORE_ATTRIBUTES, DEFAULT_STORE_ATTRIBUTES),
+                            ): BooleanSelector(),
+                            vol.Required(
+                                CONF_SKIP_ATTRIBUTE_ONLY,
+                                **default(CONF_SKIP_ATTRIBUTE_ONLY, DEFAULT_SKIP_ATTRIBUTE_ONLY),
                             ): BooleanSelector(),
                             vol.Required(
                                 CONF_AGGREGATES, **default(CONF_AGGREGATES, DEFAULT_AGGREGATES)

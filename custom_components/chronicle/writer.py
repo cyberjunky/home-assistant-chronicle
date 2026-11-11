@@ -100,6 +100,7 @@ class ChronicleWriter:
         entity_filter: EntityFilter,
         *,
         store_attributes: bool,
+        skip_attribute_only: bool = False,
         commit_interval: float,
         max_queue: int,
     ) -> None:
@@ -109,6 +110,7 @@ class ChronicleWriter:
         self._db = db
         self._filter = entity_filter
         self._store_attributes = store_attributes
+        self._skip_attribute_only = skip_attribute_only
         self._commit_interval = commit_interval
         self._queue: deque[_Pending] = deque(maxlen=max_queue)
         self._wake = asyncio.Event()
@@ -192,6 +194,10 @@ class ChronicleWriter:
         new_state = event.data["new_state"]
         if new_state is None or not self._include(new_state.entity_id):
             return
+        if self._skip_attribute_only:
+            old_state = event.data["old_state"]
+            if old_state is not None and old_state.state == new_state.state:
+                return
         if len(self._queue) == self._queue.maxlen:
             self.stats.dropped += 1
         self._queue.append(

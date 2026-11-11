@@ -155,3 +155,16 @@ async def test_sensors(hass: HomeAssistant, database) -> None:
     state = hass.states.get("binary_sensor.chronicle_connected")
     assert state is not None
     assert hass.states.get("sensor.chronicle_database_size") is not None
+
+
+async def test_skip_attribute_only(hass: HomeAssistant, database, sql) -> None:
+    await _setup(hass, database, {"skip_attribute_only": True})
+    hass.states.async_set("automation.a", "on", {"last_triggered": "1"})
+    hass.states.async_set("automation.a", "on", {"last_triggered": "2"})
+    hass.states.async_set("automation.a", "off", {"last_triggered": "2"})
+    await _flush(hass)
+
+    states = [
+        r["state"] for r in await sql.fetch("SELECT state FROM chronicle.history ORDER BY time")
+    ]
+    assert states == ["on", "off"]

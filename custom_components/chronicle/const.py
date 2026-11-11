@@ -25,6 +25,7 @@ CONF_EXCLUDE_GLOBS: Final = "exclude_entity_globs"
 
 # Storage and tuning (config entry options)
 CONF_STORE_ATTRIBUTES: Final = "store_attributes"
+CONF_SKIP_ATTRIBUTE_ONLY: Final = "skip_attribute_only"
 CONF_COMMIT_INTERVAL: Final = "commit_interval"
 CONF_MAX_QUEUE: Final = "max_queue"
 CONF_CHUNK_DAYS: Final = "chunk_days"
@@ -33,6 +34,7 @@ CONF_RETENTION_DAYS: Final = "retention_days"
 CONF_AGGREGATES: Final = "aggregates"
 
 DEFAULT_STORE_ATTRIBUTES: Final = True
+DEFAULT_SKIP_ATTRIBUTE_ONLY: Final = False
 DEFAULT_COMMIT_INTERVAL: Final = 5  # seconds between writes
 DEFAULT_MAX_QUEUE: Final = 100_000  # states kept in memory while the database is away
 DEFAULT_CHUNK_DAYS: Final = 7
