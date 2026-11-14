@@ -18,7 +18,6 @@
     "services": {
         "flush": { "service": "mdi:content-save-move" },
         "purge_entities": { "service": "mdi:delete-clock" },
-        "import_ltss": { "service": "mdi:database-import" },
         "exclude_entities": { "service": "mdi:database-remove" },
         "exclude_domains": { "service": "mdi:database-remove-outline" }
     }

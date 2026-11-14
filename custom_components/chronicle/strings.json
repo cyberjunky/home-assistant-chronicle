@@ -2,8 +2,8 @@
     "config": {
         "step": {
             "user": {
-                "title": "Connect to TimescaleDB",
-                "description": "Chronicle records the history of your entities in a TimescaleDB database, compressed and kept as long as you like.",
+                "title": "Connect to the database",
+                "description": "Chronicle records the history of your entities in PostgreSQL with TimescaleDB, compressed and kept as long as you like. The Chronicle app provides that database; any other PostgreSQL with TimescaleDB works too.",
                 "data": {
                     "host": "Host",
                     "port": "Port",
@@ -13,7 +13,7 @@
                     "ssl": "Use SSL"
                 },
                 "data_description": {
-                    "host": "The TimescaleDB server. For the TimescaleDB app from cyberjunky's repository this is 1b41fb55-timescaledb.",
+                    "host": "The database server. For the Chronicle app this is 1b41fb55-app-chronicle (its Info page shows the connection).",
                     "database": "The database to record into; it must exist. Chronicle creates its tables in a schema called chronicle.",
                     "ssl": "Encrypt the connection (the certificate is not checked)."
                 }
@@ -30,21 +30,26 @@
                     "ssl": "Use SSL"
                 },
                 "data_description": {
-                    "host": "The TimescaleDB server. For the TimescaleDB app from cyberjunky's repository this is 1b41fb55-timescaledb.",
+                    "host": "The database server. For the Chronicle app this is 1b41fb55-app-chronicle (its Info page shows the connection).",
                     "database": "The database to record into; it must exist. Chronicle creates its tables in a schema called chronicle.",
                     "ssl": "Encrypt the connection (the certificate is not checked)."
                 }
+            },
+            "hassio_confirm": {
+                "title": "Chronicle app",
+                "description": "Record the history of your entities in the database of the Chronicle app ({host}, database {database})?\n\nDoes Chronicle already record into another database? Then use Reconfigure on that entry instead, or remove that entry after adding this one: otherwise both record the same history."
             }
         },
         "error": {
             "cannot_connect": "Could not connect. Check the host, port, user name, password and that the database exists.",
             "timescaledb_missing": "The TimescaleDB extension is not installed on this PostgreSQL server.",
-            "permission": "This user may not create the TimescaleDB extension or the chronicle schema. Use the database owner or postgres.",
+            "permission": "This user may not create the TimescaleDB extension or the chronicle schema. Use the owner of the database.",
             "unknown": "An unexpected error occurred, see the log."
         },
         "abort": {
             "already_configured": "Chronicle already records into this database.",
-            "reconfigure_successful": "The connection was changed."
+            "reconfigure_successful": "The connection was changed.",
+            "invalid_discovery": "The Chronicle app sent an incomplete connection. Restart the app, or add the integration by hand."
         }
     },
     "options": {
@@ -163,10 +168,6 @@
                     "description": "Only delete history older than this many days."
                 }
             }
-        },
-        "import_ltss": {
-            "name": "Import LTSS history",
-            "description": "Copies the history of the LTSS integration (table public.ltss in this database) into Chronicle, in the background. It continues where it stopped when run again; the LTSS table is not changed."
         },
         "exclude_entities": {
             "name": "Exclude entities",

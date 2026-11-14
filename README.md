@@ -12,7 +12,7 @@
 
 A Home Assistant integration that keeps the history of your entities in [TimescaleDB](https://www.timescale.com/): every state change, compressed, for as long as you want. Home Assistant's own recorder keeps a few days for its screens; Chronicle keeps the years.
 
-It is a new take on the idea of [LTSS](https://github.com/freol35241/ltss), which is no longer maintained, written from scratch for speed and reliability. Existing LTSS history can be imported.
+It is a new take on the idea of [LTSS](https://github.com/freol35241/ltss), which is no longer maintained, written from scratch for speed and reliability.
 
 ## Features
 
@@ -22,12 +22,14 @@ It is a new take on the idea of [LTSS](https://github.com/freol35241/ltss), whic
 - **Averages that stay:** hourly and daily mean, minimum, maximum and last value of every numeric entity, kept up to date by TimescaleDB. You can remove the detailed history after a while and keep the averages for ever.
 - **Set up in the UI:** connection, which entities, how long and how compact; no YAML.
 - **Diagnostics:** sensors for the database size, the compression ratio, the queue, the rows written and the connection.
-- **Actions:** write now, purge the history of entities, exclude entities or domains, import LTSS history.
+- **Actions:** write now, purge the history of entities, exclude entities or domains.
 - **No compiling:** uses [asyncpg](https://github.com/MagicStack/asyncpg), which has ready-made packages for every Home Assistant platform, Raspberry Pi included.
 
 ## Requirements
 
-A PostgreSQL server with the TimescaleDB extension (2.13 or newer), for example the [TimescaleDB app](https://github.com/cyberjunky/home-assistant-apps/tree/main/app-timescaledb). Its user must be allowed to create the extension and a schema in the database, which the `postgres` user is.
+A PostgreSQL server with the TimescaleDB extension (2.13 or newer). The easiest is the [Chronicle app](https://github.com/cyberjunky/home-assistant-apps/tree/main/app-chronicle): PostgreSQL with TimescaleDB made for this integration, with a dashboard, a database browser, SQL, maintenance and backups. Home Assistant then finds the database by itself.
+
+Any other PostgreSQL with TimescaleDB works too. The database must exist and have the `timescaledb` extension, or its user must be allowed to create it, and the user needs to be allowed to create a schema in the database.
 
 ## Installation
 
@@ -42,15 +44,19 @@ Copy `custom_components/chronicle` into your `config/custom_components` folder a
 
 ## Setup
 
-**Settings** → **Devices & services** → **Add integration** → **Chronicle**, then enter:
+With the Chronicle app: once the app runs, Home Assistant shows **Chronicle** under **Settings** → **Devices & services** → **Discovered**. Select **Add** and confirm; the connection is filled in.
+
+Otherwise: **Settings** → **Devices & services** → **Add integration** → **Chronicle**, then enter:
 
 | Field | Example | |
 |---|---|---|
-| Host | `1b41fb55-timescaledb` | The TimescaleDB app's host name; or an IP address |
+| Host | `1b41fb55-app-chronicle` | The Chronicle app's host name; or the host name or IP address of your server |
 | Port | `5432` | |
-| User name | `postgres` | |
-| Password | | The TimescaleDB app's `postgres_password` |
-| Database | `homeassistant` | Must exist; for the TimescaleDB app, list it under `databases` |
+| User name | `chronicle` | The Chronicle app's role for the integration |
+| Password | | For the Chronicle app: shown on its Info page |
+| Database | `homeassistant` | Must exist |
+
+To move to another database later (for example to the Chronicle app), use **Reconfigure** on the integration.
 
 Chronicle creates its tables in a schema called `chronicle`, so it can share a database with other software, Home Assistant's recorder included.
 
@@ -131,14 +137,6 @@ WHERE s.time > now() - interval '1 day' GROUP BY 1 ORDER BY 2 DESC LIMIT 20;
 | `chronicle.purge_entities` | Delete the history of entities. With `keep_days` only older history; without, the entities are removed completely, averages included. Returns the number of deleted rows |
 | `chronicle.exclude_entities` | Stop recording entities: adds them to **Excluded entities** in the options and restarts the recording. With `purge: true` their history is deleted too. Returns the excluded entities and the number of deleted rows |
 | `chronicle.exclude_domains` | The same for whole domains (`domain: automation`): adds them to **Excluded domains**; with `purge: true` the history of their entities is deleted too |
-| `chronicle.import_ltss` | Copy the history of the LTSS integration (table `public.ltss` in the same database) into Chronicle |
-
-## Moving from LTSS
-
-1. Install Chronicle with the database LTSS uses, and remove LTSS (or let them run side by side for a while).
-2. Run the action **Chronicle: Import LTSS history**. It copies one day at a time in the background and shows a notification when it is done; if it is interrupted, running it again continues where it stopped. History that Chronicle recorded itself is not copied twice. The `ltss` table is not changed; drop it yourself once you are happy.
-
-LTSS's `location` column is not copied: the coordinates are in the attributes as well.
 
 ## Diagnostics
 

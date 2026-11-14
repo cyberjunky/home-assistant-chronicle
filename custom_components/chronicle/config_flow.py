@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-import voluptuous as vol
+import probatio as vol
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
@@ -28,6 +28,7 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
     TextSelectorType,
 )
+from homeassistant.helpers.service_info.hassio import HassioServiceInfo
 
 from .const import (
     CONF_AGGREGATES,
@@ -130,6 +131,8 @@ class ChronicleConfigFlow(ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    _discovered: dict[str, Any]
+
     @staticmethod
     @callback
     def async_get_options_flow(_entry: ConfigEntry) -> ChronicleOptionsFlow:
@@ -144,19 +147,58 @@ class ChronicleConfigFlow(ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured()
             errors = await _try_connection(user_input)
             if not errors:
-                return self.async_create_entry(
-                    # The database is only added to tell several entries apart
-                    title=(
-                        f"Chronicle ({user_input[CONF_DATABASE]})"
-                        if self._async_current_entries()
-                        else "Chronicle"
-                    ),
-                    data=user_input,
-                )
+                return self.async_create_entry(title=self._title(user_input), data=user_input)
         return self.async_show_form(
             step_id="user",
             data_schema=self.add_suggested_values_to_schema(CONNECTION_SCHEMA, user_input),
             errors=errors,
+        )
+
+    def _title(self, data: dict[str, Any]) -> str:
+        # The database is only added to tell several entries apart
+        return (
+            f"Chronicle ({data[CONF_DATABASE]})" if self._async_current_entries() else "Chronicle"
+        )
+
+    async def async_step_hassio(self, discovery_info: HassioServiceInfo) -> ConfigFlowResult:
+        """The Chronicle app announced its database."""
+        config = discovery_info.config
+        try:
+            data = {
+                CONF_HOST: str(config[CONF_HOST]),
+                CONF_PORT: int(config[CONF_PORT]),
+                CONF_USERNAME: str(config[CONF_USERNAME]),
+                CONF_PASSWORD: str(config[CONF_PASSWORD]),
+                CONF_DATABASE: str(config[CONF_DATABASE]),
+                CONF_SSL: False,
+            }
+        except KeyError, TypeError, ValueError:
+            return self.async_abort(reason="invalid_discovery")
+        await self.async_set_unique_id(_unique_id(data))
+        # Already recording into this database: keep its connection up to date (the app
+        # announces itself on every start, with a new password after a restore elsewhere)
+        self._abort_if_unique_id_configured(updates=data)
+        self._discovered = data
+        return await self.async_step_hassio_confirm()
+
+    async def async_step_hassio_confirm(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Confirm recording into the Chronicle app's database."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            errors = await _try_connection(self._discovered)
+            if not errors:
+                return self.async_create_entry(
+                    title=self._title(self._discovered), data=self._discovered
+                )
+        return self.async_show_form(
+            step_id="hassio_confirm",
+            errors=errors,
+            description_placeholders={
+                "host": self._discovered[CONF_HOST],
+                "database": self._discovered[CONF_DATABASE],
+            },
         )
 
     async def async_step_reconfigure(

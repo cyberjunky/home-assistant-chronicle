@@ -18,16 +18,11 @@ _LOGGER = logging.getLogger(__name__)
 # that overlaps the old one) never change the layout at the same time
 _LOCK_KEY = 0x6368726F6E  # "chron"
 
-# A state is stored as a number only when it is a plain decimal number. The same rule is
-# used in Python (writer) and in SQL (LTSS import), so both give identical rows.
+# A state is stored as a number only when it is a plain decimal number (used by the writer).
 # Not numbers: "nan", "inf", "1_000", "0x10", "", "unknown", ...
 NUMBER_PATTERN = r"^[-+]?(\d+\.?\d*|\.\d+)([eE][-+]?\d+)?$"
 # States that also get a value (1/0) next to their text, for duty-cycle aggregates
 BOOLEAN_VALUES = {"on": 1.0, "off": 0.0}
-
-# LTSS table (freol35241/ltss) that the import reads from
-LTSS_TABLE = "public.ltss"
-_IMPORT_STEP = "1 day"
 
 
 class ChronicleDatabaseError(Exception):
@@ -501,113 +496,6 @@ class ChronicleDatabase:
                 return int(status.split()[-1])
         except (OSError, TimeoutError, asyncpg.PostgresError, asyncpg.InterfaceError) as err:
             raise _translate(err) from err
-
-    async def async_ltss_table_exists(self) -> bool:
-        """Whether an LTSS table with the expected columns is in the database."""
-        pool = self._require_pool()
-        async with pool.acquire() as conn:
-            columns = {
-                r["column_name"]
-                for r in await conn.fetch(
-                    """SELECT column_name FROM information_schema.columns
-                       WHERE table_schema = 'public' AND table_name = 'ltss'"""
-                )
-            }
-        return {"time", "entity_id", "state", "attributes"} <= columns
-
-    async def async_import_ltss(self, progress: Any) -> int:
-        """Copy the LTSS history into Chronicle, one day per transaction.
-
-        Rows newer than Chronicle's first own row are skipped (they are already recorded),
-        and the position is stored after every day, so an interrupted import continues
-        where it stopped and a finished one does nothing. The ltss table is not changed.
-        progress(day, rows_so_far) is called after every day. Returns the rows copied.
-        """
-        pool = self._require_pool()
-        total = 0
-        try:
-            async with pool.acquire() as conn:
-                bounds = await conn.fetchrow(
-                    f"""SELECT
-                          (SELECT value::timestamptz FROM {SCHEMA}.meta
-                            WHERE key = 'ltss_import_position') AS position,
-                          (SELECT value::timestamptz FROM {SCHEMA}.meta
-                            WHERE key = 'ltss_import_until') AS until,
-                          (SELECT min(time) FROM {LTSS_TABLE}) AS first,
-                          (SELECT min(time) FROM {SCHEMA}.states) AS own_first"""
-                )
-                if bounds["first"] is None:
-                    return 0
-                until = bounds["until"] or bounds["own_first"]
-                if until is None:
-                    until = await conn.fetchval("SELECT now()")
-                await self._set_meta(conn, "ltss_import_until", until.isoformat())
-                position = bounds["position"] or bounds["first"]
-
-                # Entities first, all at once
-                await conn.execute(
-                    f"""INSERT INTO {SCHEMA}.entities (entity_id)
-                        SELECT DISTINCT entity_id FROM {LTSS_TABLE} WHERE time < $1
-                        ON CONFLICT (entity_id) DO NOTHING""",
-                    until,
-                )
-
-                while position < until:
-                    end = min(
-                        await conn.fetchval(
-                            f"SELECT $1::timestamptz + INTERVAL '{_IMPORT_STEP}'", position
-                        ),
-                        until,
-                    )
-                    async with conn.transaction():
-                        # Attribute sets of this day; hash from md5 of the jsonb text. It is
-                        # not the writer's hash, so a set can exist twice: harmless.
-                        await conn.execute(
-                            f"""INSERT INTO {SCHEMA}.attributes (hash, data)
-                                SELECT DISTINCT ON (h) h, attributes FROM (
-                                    SELECT ('x' || left(md5(attributes::text), 16))::bit(64)::bigint AS h,
-                                           attributes
-                                    FROM {LTSS_TABLE}
-                                    WHERE time >= $1 AND time < $2 AND attributes IS NOT NULL
-                                ) a
-                                ON CONFLICT (hash) DO NOTHING""",
-                            position,
-                            end,
-                        )
-                        status = await conn.execute(
-                            f"""INSERT INTO {SCHEMA}.states (time, entity, state, value, attributes)
-                                SELECT l.time, e.id,
-                                       CASE WHEN l.state ~ $3 THEN NULL ELSE l.state END,
-                                       CASE WHEN l.state ~ $3 THEN l.state::double precision
-                                            WHEN l.state = 'on' THEN 1
-                                            WHEN l.state = 'off' THEN 0 END,
-                                       a.id
-                                FROM {LTSS_TABLE} l
-                                JOIN {SCHEMA}.entities e ON e.entity_id = l.entity_id
-                                LEFT JOIN {SCHEMA}.attributes a
-                                  ON l.attributes IS NOT NULL
-                                 AND a.hash = ('x' || left(md5(l.attributes::text), 16))::bit(64)::bigint
-                                WHERE l.time >= $1 AND l.time < $2""",
-                            position,
-                            end,
-                            NUMBER_PATTERN,
-                        )
-                        await self._set_meta(conn, "ltss_import_position", end.isoformat())
-                    total += int(status.split()[-1])
-                    position = end
-                    progress(position, total)
-        except (OSError, TimeoutError, asyncpg.PostgresError, asyncpg.InterfaceError) as err:
-            raise _translate(err) from err
-        return total
-
-    @staticmethod
-    async def _set_meta(conn: asyncpg.Connection, key: str, value: str) -> None:
-        await conn.execute(
-            f"""INSERT INTO {SCHEMA}.meta (key, value) VALUES ($1, $2)
-                ON CONFLICT (key) DO UPDATE SET value = excluded.value""",
-            key,
-            value,
-        )
 
     async def async_stats(self) -> DatabaseStats:
         """Sizes and counts for the diagnostic sensors (cheap catalog queries only)."""
