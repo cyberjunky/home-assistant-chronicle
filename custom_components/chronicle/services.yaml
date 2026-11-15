@@ -42,5 +42,3 @@ exclude_domains:
       default: false
       selector:
         boolean:
-
-import_ltss:

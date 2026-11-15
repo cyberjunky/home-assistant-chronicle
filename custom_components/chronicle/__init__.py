@@ -2,13 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from dataclasses import dataclass
 from typing import Any
 
-import voluptuous as vol
-from homeassistant.components import persistent_notification
+import probatio as vol
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
     ATTR_ENTITY_ID,
@@ -56,7 +54,6 @@ from .const import (
     SERVICE_EXCLUDE_DOMAINS,
     SERVICE_EXCLUDE_ENTITIES,
     SERVICE_FLUSH,
-    SERVICE_IMPORT_LTSS,
     SERVICE_PURGE_ENTITIES,
 )
 from .coordinator import ChronicleStatsCoordinator
@@ -146,15 +143,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ChronicleConfigEntry) ->
     await writer.async_start()
     await coordinator.async_refresh()
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
-
-    try:
-        if await db.async_ltss_table_exists():
-            _LOGGER.info(
-                "An LTSS table (public.ltss) is in this database; the action "
-                "chronicle.import_ltss copies its history into Chronicle"
-            )
-    except ChronicleDatabaseError:
-        pass
     return True
 
 
@@ -178,7 +166,6 @@ def _loaded_entries(hass: HomeAssistant) -> list[ChronicleConfigEntry]:
 
 
 def _register_services(hass: HomeAssistant) -> None:
-    _import_tasks: dict[str, asyncio.Task[None]] = {}
 
     async def flush(_call: ServiceCall) -> None:
         for entry in _loaded_entries(hass):
@@ -228,47 +215,13 @@ def _register_services(hass: HomeAssistant) -> None:
     async def exclude_entities(call: ServiceCall) -> ServiceResponse:
         entity_ids: list[str] = call.data[ATTR_ENTITY_ID]
         deleted = await exclude(CONF_EXCLUDE_ENTITIES, entity_ids, call.data[ATTR_PURGE])
-        return {"excluded": entity_ids, "deleted_rows": deleted}
+        # A new list: the response is typed as JSON values, which list[str] is not to mypy
+        return {"excluded": [*entity_ids], "deleted_rows": deleted}
 
     async def exclude_domains(call: ServiceCall) -> ServiceResponse:
         domains: list[str] = call.data[ATTR_DOMAIN]
         deleted = await exclude(CONF_EXCLUDE_DOMAINS, domains, call.data[ATTR_PURGE])
-        return {"excluded": domains, "deleted_rows": deleted}
-
-    async def run_import(entry: ChronicleConfigEntry) -> None:
-        data = entry.runtime_data
-
-        def progress(day: Any, rows: int) -> None:
-            _LOGGER.info("LTSS import: %s rows copied, up to %s", rows, day)
-
-        try:
-            count = await data.db.async_import_ltss(progress)
-        except ChronicleDatabaseError as err:
-            message = f"The LTSS import stopped: {err}. Run the action again to continue."
-            _LOGGER.error(message)
-        else:
-            message = f"The LTSS import is finished: {count} rows copied."
-            _LOGGER.info(message)
-            data.writer.reset_caches()
-            await data.coordinator.async_request_refresh()
-        persistent_notification.async_create(
-            hass, message, title="Chronicle", notification_id=f"{DOMAIN}_ltss_import"
-        )
-
-    async def import_ltss(_call: ServiceCall) -> None:
-        for entry in _loaded_entries(hass):
-            if _import_tasks.get(entry.entry_id) and not _import_tasks[entry.entry_id].done():
-                raise HomeAssistantError("The LTSS import is already running")
-            try:
-                exists = await entry.runtime_data.db.async_ltss_table_exists()
-            except ChronicleDatabaseError as err:
-                raise HomeAssistantError(str(err)) from err
-            if not exists:
-                raise HomeAssistantError("There is no LTSS table (public.ltss) to import")
-            _LOGGER.info("Importing the LTSS history in the background, one day at a time")
-            _import_tasks[entry.entry_id] = entry.async_create_background_task(
-                hass, run_import(entry), f"{DOMAIN} LTSS import"
-            )
+        return {"excluded": [*domains], "deleted_rows": deleted}
 
     hass.services.async_register(DOMAIN, SERVICE_FLUSH, flush)
     hass.services.async_register(
@@ -283,7 +236,6 @@ def _register_services(hass: HomeAssistant) -> None:
         ),
         supports_response=SupportsResponse.OPTIONAL,
     )
-    hass.services.async_register(DOMAIN, SERVICE_IMPORT_LTSS, import_ltss)
     hass.services.async_register(
         DOMAIN,
         SERVICE_EXCLUDE_ENTITIES,

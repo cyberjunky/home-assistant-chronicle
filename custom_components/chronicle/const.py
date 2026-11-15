@@ -10,9 +10,10 @@ DOMAIN: Final = "chronicle"
 CONF_DATABASE: Final = "database"
 CONF_SSL: Final = "ssl"
 
-DEFAULT_HOST: Final = "1b41fb55-timescaledb"
+# The Chronicle app from cyberjunky/home-assistant-apps, and the role it has for the integration
+DEFAULT_HOST: Final = "1b41fb55-app-chronicle"
 DEFAULT_PORT: Final = 5432
-DEFAULT_USERNAME: Final = "postgres"
+DEFAULT_USERNAME: Final = "chronicle"
 DEFAULT_DATABASE: Final = "homeassistant"
 
 # Filter (config entry options)
@@ -63,7 +64,6 @@ SIGNAL_WRITER_UPDATE: Final = f"{DOMAIN}_writer_update_{{}}"
 # Services
 SERVICE_FLUSH: Final = "flush"
 SERVICE_PURGE_ENTITIES: Final = "purge_entities"
-SERVICE_IMPORT_LTSS: Final = "import_ltss"
 SERVICE_EXCLUDE_ENTITIES: Final = "exclude_entities"
 SERVICE_EXCLUDE_DOMAINS: Final = "exclude_domains"
 ATTR_DOMAIN: Final = "domain"
