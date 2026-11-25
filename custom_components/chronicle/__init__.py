@@ -54,6 +54,7 @@ from .const import (
     SERVICE_EXCLUDE_DOMAINS,
     SERVICE_EXCLUDE_ENTITIES,
     SERVICE_FLUSH,
+    SERVICE_PURGE_ATTRIBUTES,
     SERVICE_PURGE_ENTITIES,
 )
 from .coordinator import ChronicleStatsCoordinator
@@ -171,59 +172,94 @@ def _register_services(hass: HomeAssistant) -> None:
         for entry in _loaded_entries(hass):
             await entry.runtime_data.writer.async_flush()
 
-    async def purge_entities(call: ServiceCall) -> ServiceResponse:
-        entity_ids: list[str] = call.data[ATTR_ENTITY_ID]
-        keep_days: int | None = call.data.get(ATTR_KEEP_DAYS)
-        deleted = 0
-        for entry in _loaded_entries(hass):
-            data = entry.runtime_data
-            await data.writer.async_flush()
+    async def purge(
+        data: ChronicleData, entity_ids: list[str], keep_days: int | None
+    ) -> tuple[int, int]:
+        """Deletes history, then the attribute sets nothing refers to any more.
+        Returns the deleted (state rows, attribute sets)."""
+        await data.writer.async_flush()
+        # No batch is written meanwhile: it could refer to an attribute set that is being deleted
+        async with data.writer.write_lock:
             try:
-                deleted += await data.db.async_purge(entity_ids, keep_days)
+                rows = await data.db.async_purge(entity_ids, keep_days) if entity_ids else 0
             except ChronicleDatabaseError as err:
                 raise HomeAssistantError(f"Purge failed: {err}") from err
             data.writer.reset_caches()
-            await data.coordinator.async_request_refresh()
-        return {"deleted_rows": deleted}
+            try:
+                sets = await data.db.async_purge_attributes()
+            except ChronicleDatabaseError as err:
+                done = "The history was deleted, but removing" if entity_ids else "Removing"
+                raise HomeAssistantError(f"{done} the unused attribute sets failed: {err}") from err
+            finally:
+                data.writer.reset_caches()
+        return rows, sets
 
-    async def exclude(option_key: str, items: list[str], purge: bool) -> int:
+    async def purge_entities(call: ServiceCall) -> ServiceResponse:
+        entity_ids: list[str] = call.data[ATTR_ENTITY_ID]
+        keep_days: int | None = call.data.get(ATTR_KEEP_DAYS)
+        deleted = sets = 0
+        for entry in _loaded_entries(hass):
+            data = entry.runtime_data
+            rows, unused = await purge(data, entity_ids, keep_days)
+            deleted += rows
+            sets += unused
+            await data.coordinator.async_request_refresh()
+        return {"deleted_rows": deleted, "deleted_attribute_sets": sets}
+
+    async def purge_attributes(_call: ServiceCall) -> ServiceResponse:
+        sets = 0
+        for entry in _loaded_entries(hass):
+            data = entry.runtime_data
+            sets += (await purge(data, [], None))[1]
+            await data.coordinator.async_request_refresh()
+        return {"deleted_attribute_sets": sets}
+
+    async def exclude(option_key: str, items: list[str], with_purge: bool) -> tuple[int, int]:
         """Puts entities or domains on an exclude list in the options and restarts the
-        recording with it; with purge, their recorded history is deleted too."""
-        deleted = 0
+        recording with it; with purge, their recorded history is deleted too.
+        Returns the deleted (state rows, attribute sets)."""
+        deleted = sets = 0
         for entry in _loaded_entries(hass):
             data = entry.runtime_data
             excluded = list(entry.options.get(option_key, []))
             excluded += [i for i in items if i not in excluded]
-            if purge:
-                await data.writer.async_flush()
+            if with_purge:
                 try:
                     entity_ids = (
                         items
                         if option_key == CONF_EXCLUDE_ENTITIES
                         else await data.db.async_entity_ids(items)
                     )
-                    if entity_ids:
-                        deleted += await data.db.async_purge(entity_ids, None)
                 except ChronicleDatabaseError as err:
                     raise HomeAssistantError(f"Purge failed: {err}") from err
+                if entity_ids:
+                    rows, unused = await purge(data, entity_ids, None)
+                    deleted += rows
+                    sets += unused
             hass.config_entries.async_update_entry(
                 entry, options={**entry.options, option_key: excluded}
             )
             hass.config_entries.async_schedule_reload(entry.entry_id)
-        return deleted
+        return deleted, sets
 
     async def exclude_entities(call: ServiceCall) -> ServiceResponse:
         entity_ids: list[str] = call.data[ATTR_ENTITY_ID]
-        deleted = await exclude(CONF_EXCLUDE_ENTITIES, entity_ids, call.data[ATTR_PURGE])
+        deleted, sets = await exclude(CONF_EXCLUDE_ENTITIES, entity_ids, call.data[ATTR_PURGE])
         # A new list: the response is typed as JSON values, which list[str] is not to mypy
-        return {"excluded": [*entity_ids], "deleted_rows": deleted}
+        return {"excluded": [*entity_ids], "deleted_rows": deleted, "deleted_attribute_sets": sets}
 
     async def exclude_domains(call: ServiceCall) -> ServiceResponse:
         domains: list[str] = call.data[ATTR_DOMAIN]
-        deleted = await exclude(CONF_EXCLUDE_DOMAINS, domains, call.data[ATTR_PURGE])
-        return {"excluded": [*domains], "deleted_rows": deleted}
+        deleted, sets = await exclude(CONF_EXCLUDE_DOMAINS, domains, call.data[ATTR_PURGE])
+        return {"excluded": [*domains], "deleted_rows": deleted, "deleted_attribute_sets": sets}
 
     hass.services.async_register(DOMAIN, SERVICE_FLUSH, flush)
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_PURGE_ATTRIBUTES,
+        purge_attributes,
+        supports_response=SupportsResponse.OPTIONAL,
+    )
     hass.services.async_register(
         DOMAIN,
         SERVICE_PURGE_ENTITIES,

@@ -126,6 +126,9 @@ class ChronicleWriter:
         self._entity_meta: dict[str, _Meta] = {}
         # attribute hash -> database id (least recently used dropped first)
         self._attribute_ids: OrderedDict[int, int] = OrderedDict()
+        # Held while a batch is prepared and written. Maintenance that deletes attribute sets
+        # holds it too: a batch must not refer to a cached id that is being deleted.
+        self.write_lock = asyncio.Lock()
         self.stats = WriterStats()
 
     # ------------------------------------------------------------------ lifecycle
@@ -258,6 +261,10 @@ class ChronicleWriter:
 
     async def _write_batch(self) -> None:
         """Write up to BATCH_SIZE states; on failure they go back to the queue."""
+        async with self.write_lock:
+            await self._write_batch_locked()
+
+    async def _write_batch_locked(self) -> None:
         batch = [self._queue.popleft() for _ in range(min(BATCH_SIZE, len(self._queue)))]
         started = time.monotonic()
 

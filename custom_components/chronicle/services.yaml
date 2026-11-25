@@ -1,5 +1,7 @@
 flush:
 
+purge_attributes:
+
 purge_entities:
   fields:
     entity_id:

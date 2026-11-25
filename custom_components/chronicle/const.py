@@ -64,6 +64,7 @@ SIGNAL_WRITER_UPDATE: Final = f"{DOMAIN}_writer_update_{{}}"
 # Services
 SERVICE_FLUSH: Final = "flush"
 SERVICE_PURGE_ENTITIES: Final = "purge_entities"
+SERVICE_PURGE_ATTRIBUTES: Final = "purge_attributes"
 SERVICE_EXCLUDE_ENTITIES: Final = "exclude_entities"
 SERVICE_EXCLUDE_DOMAINS: Final = "exclude_domains"
 ATTR_DOMAIN: Final = "domain"

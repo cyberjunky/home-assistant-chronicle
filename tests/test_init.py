@@ -136,7 +136,7 @@ async def test_purge(hass: HomeAssistant, database, sql) -> None:
         blocking=True,
         return_response=True,
     )
-    assert response == {"deleted_rows": 1}
+    assert response == {"deleted_rows": 1, "deleted_attribute_sets": 0}
     assert {
         r["entity_id"] for r in await sql.fetch("SELECT entity_id FROM chronicle.entities")
     } == {"sensor.kept"}
@@ -148,6 +148,62 @@ async def test_purge(hass: HomeAssistant, database, sql) -> None:
         await sql.fetchval("SELECT count(*) FROM chronicle.history WHERE entity_id = 'sensor.gone'")
         == 1
     )
+
+
+async def test_purge_removes_unused_attribute_sets(hass: HomeAssistant, database, sql) -> None:
+    await _setup(hass, database)
+    changing = {"unit_of_measurement": "W", "last_seen": "10:00"}
+    hass.states.async_set("sensor.gone", "1", changing)
+    hass.states.async_set("sensor.gone", "2", {**changing, "last_seen": "10:01"})
+    hass.states.async_set("sensor.twin", "1", {"shared": True})
+    hass.states.async_set("sensor.kept", "1", {"shared": True})
+    await _flush(hass)
+    assert await sql.fetchval("SELECT count(*) FROM chronicle.attributes") == 3
+
+    response = await hass.services.async_call(
+        DOMAIN,
+        "purge_entities",
+        {"entity_id": ["sensor.gone", "sensor.twin"]},
+        blocking=True,
+        return_response=True,
+    )
+    # The set sensor.kept still uses stays
+    assert response == {"deleted_rows": 3, "deleted_attribute_sets": 2}
+    assert [r["data"] for r in await sql.fetch("SELECT data FROM chronicle.attributes")] == [
+        '{"shared": true}'
+    ]
+
+    async def attributes_of(entity_id: str) -> list:
+        return [
+            r["attributes"]
+            for r in await sql.fetch(
+                "SELECT attributes FROM chronicle.history WHERE entity_id = $1 ORDER BY time",
+                entity_id,
+            )
+        ]
+
+    # A deleted set that comes back is stored again: no state points at nothing
+    hass.states.async_set("sensor.again", "5", changing)
+    await _flush(hass)
+    assert await attributes_of("sensor.again") == [
+        '{"last_seen": "10:00", "unit_of_measurement": "W"}'
+    ]
+
+    # Sets left behind by history that went another way, as before this action existed
+    await sql.execute(
+        """DELETE FROM chronicle.states
+           WHERE entity = (SELECT id FROM chronicle.entities WHERE entity_id = 'sensor.again')"""
+    )
+    response = await hass.services.async_call(
+        DOMAIN, "purge_attributes", blocking=True, return_response=True
+    )
+    assert response == {"deleted_attribute_sets": 1}
+    hass.states.async_set("sensor.again", "6", changing)
+    await _flush(hass)
+    assert await attributes_of("sensor.again") == [
+        '{"last_seen": "10:00", "unit_of_measurement": "W"}'
+    ]
+    assert await sql.fetchval("SELECT count(*) FROM chronicle.attributes") == 2
 
 
 async def test_exclude_entities(hass: HomeAssistant, database, sql) -> None:
@@ -164,7 +220,11 @@ async def test_exclude_entities(hass: HomeAssistant, database, sql) -> None:
         return_response=True,
     )
     await hass.async_block_till_done()
-    assert response == {"excluded": ["sensor.noisy"], "deleted_rows": 1}
+    assert response == {
+        "excluded": ["sensor.noisy"],
+        "deleted_rows": 1,
+        "deleted_attribute_sets": 0,
+    }
     assert entry.options["exclude_entities"] == ["sensor.other", "sensor.noisy"]
     assert entry.state is ConfigEntryState.LOADED
 
@@ -192,7 +252,11 @@ async def test_exclude_domains(hass: HomeAssistant, database, sql) -> None:
         return_response=True,
     )
     await hass.async_block_till_done()
-    assert response == {"excluded": ["automation"], "deleted_rows": 2}
+    assert response == {
+        "excluded": ["automation"],
+        "deleted_rows": 2,
+        "deleted_attribute_sets": 0,
+    }
     assert entry.options["exclude_domains"] == ["automation"]
 
     hass.states.async_set("automation.a", "off")
