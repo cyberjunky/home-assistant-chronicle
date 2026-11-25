@@ -80,7 +80,7 @@ SELECT e.entity_id, count(*) FROM chronicle.states s JOIN chronicle.entities e O
 WHERE s.time > now() - interval '1 day' GROUP BY 1 ORDER BY 2 DESC LIMIT 20;
 ```
 
-What was recorded before an exclusion stays; remove it with the action **Chronicle: Purge entities**, or exclude and purge in one go with **Chronicle: Exclude entities** (the Chronicle app's entity page has buttons for both). Purging also removes the attribute sets that nothing refers to afterwards. PostgreSQL reuses that room for new rows; to give it back to the system, run `VACUUM FULL chronicle.attributes` (the Chronicle app's Maintenance page can).
+What was recorded before an exclusion stays; remove it with the action **Chronicle: Purge entities**, or exclude and purge in one go with **Chronicle: Exclude entities** (the Chronicle app's entity page has buttons for both). Purging also removes the attribute sets that nothing refers to afterwards. PostgreSQL reuses that room for new rows; to give it back to the system, run `VACUUM FULL chronicle.attributes` (in the Chronicle app: Databases, the table, Vacuum with VACUUM FULL ticked).
 
 **Storage.**
 
