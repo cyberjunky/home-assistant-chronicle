@@ -155,9 +155,13 @@
             "name": "Write now",
             "description": "Writes the queued states to the database right away."
         },
+        "purge_attributes": {
+            "name": "Remove unused attribute sets",
+            "description": "Deletes the attribute sets that no recorded state refers to any more, such as those left by history that was deleted before. It reads every state, which takes a while on a large history. The database gives the room back to the system after a VACUUM FULL of chronicle.attributes."
+        },
         "purge_entities": {
             "name": "Purge entities",
-            "description": "Deletes the recorded history of entities. Without 'Keep days' the entities are removed completely, averages included.",
+            "description": "Deletes the recorded history of entities, and the attribute sets nothing refers to afterwards. Without 'Keep days' the entities are removed completely, averages included.",
             "fields": {
                 "entity_id": {
                     "name": "Entities",

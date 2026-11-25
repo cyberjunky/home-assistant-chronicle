@@ -6,13 +6,16 @@ import asyncio
 import logging
 import ssl as ssl_module
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Final
 
 import asyncpg
 
 from .const import SCHEMA, SCHEMA_VERSION
 
 _LOGGER = logging.getLogger(__name__)
+
+# Looking for unused attribute sets reads every state: seconds, minutes on a large history
+PURGE_ATTRIBUTES_TIMEOUT: Final = 900
 
 # Schema changes take this advisory lock, so two Home Assistant instances (or a restart
 # that overlaps the old one) never change the layout at the same time
@@ -493,6 +496,25 @@ class ChronicleDatabase:
                         f"DELETE FROM {record['name']} WHERE entity = ANY($1::int[])", ids
                     )
                 await conn.execute(f"DELETE FROM {SCHEMA}.entities WHERE id = ANY($1::int[])", ids)
+                return int(status.split()[-1])
+        except (OSError, TimeoutError, asyncpg.PostgresError, asyncpg.InterfaceError) as err:
+            raise _translate(err) from err
+
+    async def async_purge_attributes(self) -> int:
+        """Delete the attribute sets that no state refers to any more. Returns how many.
+
+        Purging an entity leaves its attribute sets behind: another entity may use the same
+        set, so that is only known by looking at all the states. The caller keeps the writer
+        from writing meanwhile and resets its caches afterwards.
+        """
+        pool = self._require_pool()
+        try:
+            async with pool.acquire() as conn:
+                status = await conn.execute(
+                    f"""DELETE FROM {SCHEMA}.attributes a
+                        WHERE NOT EXISTS (SELECT FROM {SCHEMA}.states s WHERE s.attributes = a.id)""",
+                    timeout=PURGE_ATTRIBUTES_TIMEOUT,
+                )
                 return int(status.split()[-1])
         except (OSError, TimeoutError, asyncpg.PostgresError, asyncpg.InterfaceError) as err:
             raise _translate(err) from err
